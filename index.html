@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Command Recorder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* Global Styles */
+        body {
+            background: url('/templates/helo.png') ;
+            background-size: cover;
+            background-color: pink; /* Fallback in case image doesn't load */
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 400px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 22px;
+            color: #f39c12;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background: pink;
+            border: 1px solid #666;
+            color: white;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn.start {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn.start:hover {
+            background: #2ecc71;
+        }
+
+        .btn.stop {
+            background: #c0392b;
+            color: white;
+        }
+
+        .btn.stop:hover {
+            background: #e74c3c;
+        }
+
+        .recordings {
+            margin-top: 20px;
+        }
+
+        .recordings ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .recordings li {
+            background: pink;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .recordings a {
+            color: #f39c12;
+            text-decoration: none;
+        }
+
+        .recordings a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Voice Command Recorder</h1>
+
+    <label for="command">Command:</label>
+    <select id="command">
+        <option value="start">Start</option>
+        <option value="stop">Stop</option>
+        <option value="left">Left</option>
+        <option value="right">Right</option>
+        <option value="up">Up</option>
+        <option value="down">Down</option>
+    </select>
+
+    <label for="language">Language:</label>
+    <select id="language">
+        <option value="English">English</option>
+        <option value="Turkish">Turkish</option>
+    </select>
+
+    <label for="gender">Gender:</label>
+    <select id="gender">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+    </select>
+
+    <label for="speaker">Speaker:</label>
+    <input type="text" id="speaker" placeholder="Enter your name" required>
+
+    <button class="btn start" id="record-btn">
+        <i class="fas fa-microphone"></i> Start Recording
+    </button>
+    <button class="btn stop" id="stop-btn">
+        <i class="fas fa-stop-circle"></i> Stop Recording
+    </button>
+
+    <div class="recordings">
+        <h2>Recordings</h2>
+        <ul id="recordings-list"></ul>
+    </div>
+</div>
+
+<script>
+    // Ensure recordingsList is properly defined
+    const recordingsList = document.getElementById("recordings-list");
+
+    // Function to fetch and display recordings
+function fetchRecordings() {
+    fetch("/recordings")
+        .then(response => response.json())
+        .then(data => {
+            recordingsList.innerHTML = ""; // Clear the list before adding new items
+            if (data.length === 0) {
+                recordingsList.innerHTML = "<li>No recordings found.</li>";
+            }
+            data.forEach(recording => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <span>${recording.command} - ${recording.speaker} (${recording.language}, ${recording.gender})</span>
+                    <a href="/voice_commands/${recording.filename}" target="_blank">Play</a>
+                    <button class="run-voice-btn" data-filename="${recording.filename}">Run Voice</button>
+                    <button class="delete-btn" data-filename="${recording.filename}">Delete</button>
+                `;
+                recordingsList.appendChild(li);
+            });
+
+            // Attach event listeners to delete buttons
+            document.querySelectorAll(".delete-btn").forEach(button => {
+                button.addEventListener("click", function() {
+                    const filename = this.getAttribute("data-filename");
+                    deleteRecording(filename);
+                });
+            });
+
+            // Attach event listeners to run voice buttons
+            document.querySelectorAll(".run-voice-btn").forEach(button => {
+                button.addEventListener("click", function() {
+                    const filename = this.getAttribute("data-filename");
+                    runVoice(filename);
+                });
+            });
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            recordingsList.innerHTML = "<li>Error fetching recordings. Please try again later.</li>";
+        });
+}
+
+    // Function to delete a recording
+    function deleteRecording(filename) {
+        fetch(`/delete/${filename}`, {
+            method: "DELETE"
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            fetchRecordings(); // Refresh the list after deleting
+        })
+        .catch(error => console.error("Error deleting recording:", error));
+    }
+
+    // Function to run the voice command
+    function runVoice(filename) {
+        fetch(`/run-voice/${filename}`, {
+            method: "POST"
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+        })
+        .catch(error => console.error("Error running voice command:", error));
+    }
+
+    // Call fetchRecordings when the page loads
+    window.onload = fetchRecordings;
+</script>
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const recordBtn = document.getElementById("record-btn");
+        const stopBtn = document.getElementById("stop-btn");
+        const recordingsList = document.getElementById("recordings-list");
+
+        recordBtn.addEventListener("click", function() {
+            const command = document.getElementById("command").value;
+            const language = document.getElementById("language").value;
+            const speaker = document.getElementById("speaker").value;
+            const gender = document.getElementById("gender").value;
+
+            if (!speaker) {
+                alert("Please enter speaker name.");
+                return;
+            }
+
+            fetch("/record", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command, language, speaker,gender })
+            })
+            .then(response => response.json())
+            .then(data => alert(data.message))
+            .catch(error => console.error("Error:", error));
+        });
+
+        stopBtn.addEventListener("click", function() {
+            fetch("/stop", { method: "POST" })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                fetchRecordings(); // Refresh the list after stopping
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    })
+</script>
+
+
+</body>
+</html>
